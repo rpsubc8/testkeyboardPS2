@@ -1,7 +1,8 @@
 <H1>Minimal Test Keyboard PS/2</H1>
 <ul>
- <li>Test in Arduino IDE 1.8.16.</li>
+ <li>Test in Arduino IDE 1.8.16.</li> 
  <li>Output serial (240 scancodes) 115200 baudios.</li>
+ <li>The serial port output consists of a matrix of 3 rows of 80 columns, i.e. 240 scancodes, where a 1 is a key pressed and 0 not pressed.</li>
 </ul>
 
 <br><br>
