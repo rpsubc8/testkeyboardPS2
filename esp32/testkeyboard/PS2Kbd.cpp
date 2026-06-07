@@ -1,3 +1,4 @@
+#include "gbConfig.h"
 #include "PS2Kbd.h"
 #include <Arduino.h>
 
@@ -86,6 +87,10 @@ void kb_begin()
 {
  memset((void *)gb_keymap, 0xFF, sizeof(gb_keymap));
 // SaveStateKeyboard();
+
+ #ifdef PS2_DIAGNOSTIC_ECHO
+  PS2SendECHO();
+ #endif
  
  pinMode(KEYBOARD_DATA, INPUT_PULLUP);
  pinMode(KEYBOARD_CLK, INPUT_PULLUP);
@@ -128,6 +133,53 @@ unsigned char checkKey(unsigned char scancode)
  
  return valor;
 }
+
+#ifdef PS2_DIAGNOSTIC_ECHO
+ void PS2SendECHO()
+ {
+  //unsigned char comando = 0xEE; // Comando ECHO 
+  pinMode(KEYBOARD_CLK, OUTPUT);
+  pinMode(KEYBOARD_DATA, OUTPUT);
+  delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda 
+
+  Serial.printf("PS2SendECHO BEGIN\r\n");
+
+  // 1. Peticion de envio (CLK bajo por 110 micro segundos)
+  digitalWrite(KEYBOARD_CLK, LOW);
+  delayMicroseconds(110);
+  
+  // 2. Bit de inicio (DATA bajo)
+  digitalWrite(KEYBOARD_DATA, LOW);
+  delayMicroseconds(15);
+
+  // 3. Enviar los 8 bits directamente del byte usando tiempos fijos (12.5 kHz)
+  for (unsigned char i = 0; i < 8; i++) {
+    digitalWrite(KEYBOARD_CLK, LOW);    
+    digitalWrite(KEYBOARD_DATA, (0xEE >> i) & 1); //digitalWrite(KEYBOARD_DATA, (comando >> i) & 1);
+    delayMicroseconds(40);
+    
+    digitalWrite(KEYBOARD_CLK, HIGH);
+    delayMicroseconds(40);
+  }
+
+  // 4. Bit de Paridad (Para 0xEE siempre es 0)
+  digitalWrite(KEYBOARD_CLK, LOW);
+  digitalWrite(KEYBOARD_DATA, LOW);
+  delayMicroseconds(40);
+  digitalWrite(KEYBOARD_CLK, HIGH);
+  delayMicroseconds(40);
+
+  // 5. Bit de Parada (Siempre es 1)
+  digitalWrite(KEYBOARD_CLK, LOW);
+  digitalWrite(KEYBOARD_DATA, HIGH);
+  delayMicroseconds(40);
+  digitalWrite(KEYBOARD_CLK, HIGH);
+  delayMicroseconds(40);
+
+  delay(PS2_DIAGNOSTIC_ECHO_TIME_DELAY);
+  Serial.printf("PS2SendECHO END\r\n");
+ }
+#endif
 
 
 //void ResetKeyboard()

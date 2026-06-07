@@ -4,6 +4,7 @@
 //Author: ackerman
 //Show 240 scancodes
 
+#include "gbConfig.h"
 #include "PS2Kbd.h"
 #include <Arduino.h>
 
@@ -18,6 +19,7 @@ unsigned int gb_teclado_cur=0;
 unsigned int gb_tiempo_borrar_cur=0,gb_tiempo_borrar_prev=0;
 
 void DumpTeclado(void);
+
 
 void DumpTeclado()
 { 

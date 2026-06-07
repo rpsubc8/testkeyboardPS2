@@ -1,8 +1,10 @@
 #ifndef _TECLADO_PS2KBD_H
  #define _TECLADO_PS2KBD_H
 
- #define KEYBOARD_DATA 32
- #define KEYBOARD_CLK 33
+ #include "gbConfig.h"
+
+ //#define KEYBOARD_DATA 32
+ //#define KEYBOARD_CLK 33
 
 //#include "gbConfig.h"
 //#include "hardware.h"
@@ -109,6 +111,10 @@ void kb_begin(void);
 
 unsigned char checkAndCleanKey(unsigned char scancode);
 unsigned char checkKey(unsigned char scancode);
+#ifdef PS2_DIAGNOSTIC_ECHO
+ void PS2SendECHO(void);
+#endif
+
 //void ResetKeyboard(void);
 //void SaveStateKeyboard(void);
 //unsigned char ChangeStateKeyboard(void);
