@@ -112,7 +112,12 @@ void kb_begin(void);
 unsigned char checkAndCleanKey(unsigned char scancode);
 unsigned char checkKey(unsigned char scancode);
 #ifdef PS2_DIAGNOSTIC_ECHO
- void PS2SendECHO(void);
+ short int PS2GetECHOState(void);
+ short int PS2SendECHO(void); 
+ void enviarBytePS2(unsigned char dato);
+ void escribirBitPS2(unsigned char bitVal);
+ void esperarACK(void);
+ void escribirBitConRelojTeclado(unsigned char bitVal);
 #endif
 
 //void ResetKeyboard(void);

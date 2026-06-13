@@ -7,6 +7,10 @@
 volatile unsigned char gb_keymap[gb_max_keymap]; //256 DIV 8 = 32 bytes packet bit
 volatile unsigned int *gb_keymap32=(unsigned int *)gb_keymap;
 
+#ifdef PS2_DIAGNOSTIC_ECHO
+ short int gb_keyboard_echo_req= 0;
+#endif 
+
 //unsigned int gb_keymap_state_prev32[gb_max_keymap32]; //Estado anterior
 
 volatile unsigned char keyup = 0;
@@ -89,7 +93,7 @@ void kb_begin()
 // SaveStateKeyboard();
 
  #ifdef PS2_DIAGNOSTIC_ECHO
-  PS2SendECHO();
+  PS2SendECHO();  
  #endif
  
  pinMode(KEYBOARD_DATA, INPUT_PULLUP);
@@ -135,50 +139,195 @@ unsigned char checkKey(unsigned char scancode)
 }
 
 #ifdef PS2_DIAGNOSTIC_ECHO
- void PS2SendECHO()
- {
-  //unsigned char comando = 0xEE; // Comando ECHO 
-  pinMode(KEYBOARD_CLK, OUTPUT);
-  pinMode(KEYBOARD_DATA, OUTPUT);
-  delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda 
 
-  Serial.printf("PS2SendECHO BEGIN\r\n");
+ // Definicion de pines (puedes usar cualquiera, no requieren interrupcion externa)
+ const int CLOCK_PIN = KEYBOARD_CLK;
+ const int DATA_PIN = KEYBOARD_DATA;
+ const unsigned char CMD_ECHO = 0xEE;
 
-  // 1. Peticion de envio (CLK bajo por 110 micro segundos)
-  digitalWrite(KEYBOARD_CLK, LOW);
-  delayMicroseconds(110);
+
+// TRANSMISION: Envia un byte al teclado usando el Clock del periferico
+void enviarBytePS2(unsigned char dato) 
+{
+  unsigned char paridad = 1; // Paridad impar inicializada en 1
+  unsigned int timeout = 0;
+
+  // 1. SOLICITUD DE ENVIO (Inhibir lineas)
+  pinMode(CLOCK_PIN, OUTPUT);
+  digitalWrite(CLOCK_PIN, LOW);       
+  delayMicroseconds(110);             // Mantener bajo > 100us
   
-  // 2. Bit de inicio (DATA bajo)
-  digitalWrite(KEYBOARD_DATA, LOW);
-  delayMicroseconds(15);
+  pinMode(DATA_PIN, OUTPUT);
+  digitalWrite(DATA_PIN, LOW);        // Bit de Start (Data = 0)
+  
+  pinMode(CLOCK_PIN, INPUT_PULLUP);   // Libera Clock para que el teclado tome el control
 
-  // 3. Enviar los 8 bits directamente del byte usando tiempos fijos (12.5 kHz)
-  for (unsigned char i = 0; i < 8; i++) {
-    digitalWrite(KEYBOARD_CLK, LOW);    
-    digitalWrite(KEYBOARD_DATA, (0xEE >> i) & 1); //digitalWrite(KEYBOARD_DATA, (comando >> i) & 1);
-    delayMicroseconds(40);
-    
-    digitalWrite(KEYBOARD_CLK, HIGH);
-    delayMicroseconds(40);
+  timeout = millis();
+  // 2. TRANSMISION DE BITS (Sincronizados con el Clock del teclado)
+  for (unsigned char i = 0; i < 8; i++) 
+  {
+    unsigned char bitActual = (dato >> i) & 0x01;
+    paridad ^= bitActual;             
+    escribirBitConRelojTeclado(bitActual);
   }
 
-  // 4. Bit de Paridad (Para 0xEE siempre es 0)
-  digitalWrite(KEYBOARD_CLK, LOW);
-  digitalWrite(KEYBOARD_DATA, LOW);
-  delayMicroseconds(40);
-  digitalWrite(KEYBOARD_CLK, HIGH);
-  delayMicroseconds(40);
+  // Enviar bit de Paridad
+  escribirBitConRelojTeclado(paridad);
 
-  // 5. Bit de Parada (Siempre es 1)
-  digitalWrite(KEYBOARD_CLK, LOW);
-  digitalWrite(KEYBOARD_DATA, HIGH);
-  delayMicroseconds(40);
-  digitalWrite(KEYBOARD_CLK, HIGH);
-  delayMicroseconds(40);
+  // Enviar bit de Stop (Data = 1)
+  escribirBitConRelojTeclado(HIGH);
+
+  // 3. RESPUESTA DE LINEA (Line ACK de hardware)
+  while (digitalRead(DATA_PIN) == HIGH)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+  }
+  while (digitalRead(CLOCK_PIN) == LOW)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+  }
+  while (digitalRead(DATA_PIN) == LOW)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
+  }
+}
+
+// Funcion auxiliar para escribir bits individuales en los flancos del teclado
+void escribirBitConRelojTeclado(unsigned char bitVal) 
+{
+  unsigned int timeout = millis();
+  
+  while (digitalRead(CLOCK_PIN) == HIGH)
+  { // Esperar flanco de bajada
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
+  }
+
+  if (bitVal == HIGH)
+  {
+    pinMode(DATA_PIN, INPUT_PULLUP);  
+  }
+  else 
+  {
+    pinMode(DATA_PIN, OUTPUT);
+    digitalWrite(DATA_PIN, LOW);      
+  }
+
+  while (digitalRead(CLOCK_PIN) == LOW)
+  { // Esperar a que el Clock vuelva a subir
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
+  }
+}
+
+// RECEPCION: Lee un byte completo proveniente del teclado usando Polling puro
+short int leerBytePS2() 
+{
+  unsigned char datoRecibido = 0;
+  unsigned long timeout = millis();
+
+  // 1. Esperar el bit de START (El teclado baja la línea DATA)
+  // Añadimos un timeout de 500ms por si el teclado no responde
+  while (digitalRead(DATA_PIN) == HIGH) 
+  {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+  }
+  
+  // Esperar a que el ciclo de reloj del bit de Start termine
+  while (digitalRead(CLOCK_PIN) == HIGH)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+  }
+  while (digitalRead(CLOCK_PIN) == LOW)
+  {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+  }
+
+  // 2. LEER LOS 8 BITS DE DATOS (LSB primero)
+  for (unsigned char i = 0; i < 8; i++) 
+  {
+    while (digitalRead(CLOCK_PIN) == HIGH)
+    { // Esperar a que el Clock baje (El dato ya es valido)
+     if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+    }
+    
+    unsigned char bitLeido = digitalRead(DATA_PIN);
+    datoRecibido |= (bitLeido << i);        // Almacenar el bit en su posicion
+    
+    while (digitalRead(CLOCK_PIN) == LOW)
+    { // Esperar a que el Clock suba
+      if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+    }
+  }
+
+  // 3. LEER BIT DE PARIDAD (Saltar/Ignorar en este ejemplo basico)
+  while (digitalRead(CLOCK_PIN) == HIGH)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+  }
+  while (digitalRead(CLOCK_PIN) == LOW)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+  }
+
+  // 4. LEER BIT DE STOP
+  while (digitalRead(CLOCK_PIN) == HIGH)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+  }
+  while (digitalRead(CLOCK_PIN) == LOW)
+  {
+   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+  }
+
+  return datoRecibido;
+}
+
+
+ short int PS2SendECHO()
+ {
+  pinMode(CLOCK_PIN, INPUT_PULLUP);
+  pinMode(DATA_PIN, INPUT_PULLUP);
+
+  Serial.println("PS2SendECHO BEGIN");
+  delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda 
+  
+  Serial.println("--- Probando Comunicacion PS/2 (ECHO) ---");
+
+  // Enviar comando ECHO
+  enviarBytePS2(CMD_ECHO);
+  
+  // Leer la respuesta del teclado por polling
+  int respuesta = leerBytePS2();
+  
+  // Verificar si la respuesta es la correcta
+  if (respuesta == CMD_ECHO) 
+  {
+    Serial.println("¡EXITO! El teclado respondio correctamente con 0xEE (ECHO).");
+  } 
+  else  
+  {
+   if (respuesta == -1) 
+   {
+     Serial.println("ERROR: Tiempo de espera agotado (Timeout). El teclado no respondio.");
+   } 
+   else 
+   {
+     Serial.print("ERROR: Respuesta inesperada del teclado: 0x");
+     Serial.println(respuesta, HEX);
+   }  
+  }
+
+  gb_keyboard_echo_req= respuesta;
 
   delay(PS2_DIAGNOSTIC_ECHO_TIME_DELAY);
-  Serial.printf("PS2SendECHO END\r\n");
+  Serial.println("PS2SendECHO END");
  }
+
+
+ short int PS2GetECHOState(void)
+ {
+  return gb_keyboard_echo_req;
+ }
+ 
 #endif
 
 
