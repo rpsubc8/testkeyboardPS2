@@ -320,6 +320,8 @@ short int leerBytePS2()
 
   delay(PS2_DIAGNOSTIC_ECHO_TIME_DELAY);
   Serial.println("PS2SendECHO END");
+
+  return respuesta;
  }
 
 
