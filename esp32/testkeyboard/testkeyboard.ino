@@ -20,6 +20,10 @@ unsigned int gb_teclado_prev=0;
 unsigned int gb_teclado_cur=0;
 unsigned int gb_tiempo_borrar_cur=0,gb_tiempo_borrar_prev=0;
 
+#ifdef PS2_DIAGNOSTIC_ECHO
+ short int gb_keyboard_echo_req= 0;
+#endif 
+
 char ps2_to_ascii[256];
 
 void InitPs2ToASCII(void);
@@ -33,7 +37,7 @@ void DumpTeclado(void);
 #ifdef PS2_DIAGNOSTIC_ECHO  
  void DumpEchoReq()
  {
-  short int respuesta = PS2GetECHOState();
+  short int respuesta = gb_keyboard_echo_req;
   if (respuesta == 0xEE) 
   {
     Serial.println("OK.ECHO 0xEE");
@@ -195,7 +199,11 @@ void setup()
 
  InitPs2ToASCII();
 
- kb_begin();
+ #ifdef PS2_DIAGNOSTIC_ECHO
+  gb_keyboard_echo_req= kb_begin();
+ #else
+  kb_begin();
+ #endif 
  delay(100);
   
  gb_setup_end= 1;  

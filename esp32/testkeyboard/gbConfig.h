@@ -10,7 +10,7 @@
  #define PS2_DIAGNOSTIC_ECHO
  
  //Time delay before send ECHO
- #define PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY 1000
+ #define PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY 500
  //Time delay after send ECHO
  #define PS2_DIAGNOSTIC_ECHO_TIME_DELAY 500
  //Timeout flag keyboard

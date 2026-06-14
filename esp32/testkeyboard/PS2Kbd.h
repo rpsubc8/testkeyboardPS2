@@ -106,18 +106,22 @@
 
 
 void IRAM_ATTR kb_interruptHandler(void);
-void kb_begin(void);
+
 
 
 unsigned char checkAndCleanKey(unsigned char scancode);
 unsigned char checkKey(unsigned char scancode);
 #ifdef PS2_DIAGNOSTIC_ECHO
- short int PS2GetECHOState(void);
+ #define CMD_ECHO 0xEE
+ 
+ short int kb_begin(void);
  short int PS2SendECHO(void); 
  void enviarBytePS2(unsigned char dato);
  void escribirBitPS2(unsigned char bitVal);
  void esperarACK(void);
  void escribirBitConRelojTeclado(unsigned char bitVal);
+#else
+ void kb_begin(void);
 #endif
 
 //void ResetKeyboard(void);
