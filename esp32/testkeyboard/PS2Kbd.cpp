@@ -25,16 +25,16 @@ void IRAM_ATTR kb_interruptHandler()
 {
  unsigned int now_ms;
  unsigned char n, val;
- 
- //if (digitalRead(KEYBOARD_CLK) == 1) 
- if (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01) ==1)
- {
-  return;
- }
 
- //val = digitalRead(KEYBOARD_DATA);
- val = (REG_READ(GPIO_IN1_REG) >> (KEYBOARD_DATA- 32))&0x01;
- now_ms = millis(); 
+ #ifdef PS2_FAST_BIT
+  if (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01) ==1) { return; }
+  val = (REG_READ(GPIO_IN_REG_KEYBOARD_DATA_END) >> KEYBOARD_DATA_END)&0x01;
+ #else
+  if (digitalRead(KEYBOARD_CLK) == 1) { return; }
+  val = digitalRead(KEYBOARD_DATA);
+ #endif
+ 
+ now_ms = millis();
  if ((now_ms - gb_kb_prev_ms) > 250)
  {
   gb_kb_bitcount = 0;
@@ -158,88 +158,139 @@ unsigned char checkKey(unsigned char scancode)
   unsigned int timeout = 0;
   unsigned char bitActual;
 
-  // 1. SOLICITUD DE ENVIO (Inhibir lineas)
-  //pinMode(KEYBOARD_CLK, OUTPUT);
-  REG_WRITE(GPIO_ENABLE1_W1TS_REG, (1ULL << (KEYBOARD_CLK - 32)));
-  
-  //digitalWrite(KEYBOARD_CLK, LOW);
-  REG_WRITE(GPIO_OUT_W1TC_REG, (1ULL << (KEYBOARD_CLK-32)));
-  delayMicroseconds(110);             // Mantener bajo > 100us
-  
-  //pinMode(KEYBOARD_DATA, OUTPUT);
-  REG_WRITE(GPIO_ENABLE1_W1TS_REG, (1ULL << (KEYBOARD_DATA - 32)));
-  
-  //digitalWrite(KEYBOARD_DATA, LOW);        // Bit de Start (Data = 0)
-  REG_WRITE(GPIO_OUT_W1TC_REG, (1ULL << (KEYBOARD_DATA-32)));
-  
-  //pinMode(KEYBOARD_CLK, INPUT_PULLUP);   // Libera Clock para que el teclado tome el control
-  REG_WRITE(GPIO_ENABLE1_W1TC_REG, (1ULL << (KEYBOARD_CLK - 32))); //entrada
-  gpio_pullup_en((gpio_num_t)KEYBOARD_CLK); //Pullup  
+  #ifdef PS2_FAST_BIT
+   // 1. SOLICITUD DE ENVIO (Inhibir lineas)
+   REG_WRITE(GPIO_ENABLE_W1TS_REG_KEYBOARD_CLK_END, (1ULL << KEYBOARD_CLK_END));     //pinMode(KEYBOARD_CLK, OUTPUT);
+   REG_WRITE(GPIO_OUT_W1TC_REG_KEYBOARD_CLK_END, (1ULL << KEYBOARD_CLK_END));        //digitalWrite(KEYBOARD_CLK, LOW);
+   delayMicroseconds(110);                                                           // Mantener bajo > 100us
+     
+   REG_WRITE(GPIO_ENABLE_W1TS_REG_KEYBOARD_DATA_END, (1ULL << KEYBOARD_DATA_END));   //pinMode(KEYBOARD_DATA, OUTPUT);
+   REG_WRITE(GPIO_OUT_W1TC_REG_KEYBOARD_DATA_END, (1ULL << KEYBOARD_DATA_END));      //digitalWrite(KEYBOARD_DATA, LOW);        // Bit de Start (Data = 0)
+     
+   REG_WRITE(GPIO_ENABLE_W1TC_REG_KEYBOARD_CLK_END, (1ULL << KEYBOARD_CLK_END));     //entrada //pinMode(KEYBOARD_CLK, INPUT_PULLUP);   // Libera Clock para que el teclado tome el control
+   gpio_pullup_en((gpio_num_t)KEYBOARD_CLK);                                         //Pullup
 
-  timeout = millis();
-  // 2. TRANSMISION DE BITS (Sincronizados con el Clock del teclado)
-  for (unsigned char i = 0; i < 8; i++) 
-  {
+   timeout = millis();
+   // 2. TRANSMISION DE BITS (Sincronizados con el Clock del teclado)
+   for (unsigned char i = 0; i < 8; i++)
+   {
+    bitActual = (dato >> i) & 0x01;
+    paridad ^= bitActual;
+    escribirBitConRelojTeclado(bitActual);
+   }
+
+   // Enviar bit de Paridad
+   escribirBitConRelojTeclado(paridad);
+
+   // Enviar bit de Stop (Data = 1)
+   escribirBitConRelojTeclado(HIGH);
+
+   // 3. RESPUESTA DE LINEA (Line ACK de hardware)
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_DATA_END) >> KEYBOARD_DATA_END) & 0x01)==1)
+   {//while (digitalRead(KEYBOARD_DATA) == HIGH)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+   }
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==0)
+   {//while (digitalRead(KEYBOARD_CLK) == LOW)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+   }
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_DATA_END) >> KEYBOARD_DATA_END) & 0x01)==0)   
+   {//while (digitalRead(KEYBOARD_DATA) == LOW)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+   }
+  #else
+   // 1. SOLICITUD DE ENVIO (Inhibir lineas)
+   pinMode(KEYBOARD_CLK, OUTPUT);   
+  
+   digitalWrite(KEYBOARD_CLK, LOW);   
+   delayMicroseconds(110);             // Mantener bajo > 100us
+  
+   pinMode(KEYBOARD_DATA, OUTPUT);   
+  
+   digitalWrite(KEYBOARD_DATA, LOW);        // Bit de Start (Data = 0)   
+  
+   pinMode(KEYBOARD_CLK, INPUT_PULLUP);   // Libera Clock para que el teclado tome el control
+
+   timeout = millis();
+   // 2. TRANSMISION DE BITS (Sincronizados con el Clock del teclado)
+   for (unsigned char i = 0; i < 8; i++) 
+   {
     bitActual = (dato >> i) & 0x01;
     paridad ^= bitActual;             
     escribirBitConRelojTeclado(bitActual);
-  }
+   }
 
-  // Enviar bit de Paridad
-  escribirBitConRelojTeclado(paridad);
+   // Enviar bit de Paridad
+   escribirBitConRelojTeclado(paridad);
 
-  // Enviar bit de Stop (Data = 1)
-  escribirBitConRelojTeclado(HIGH);
+   // Enviar bit de Stop (Data = 1)
+   escribirBitConRelojTeclado(HIGH);
 
-  // 3. RESPUESTA DE LINEA (Line ACK de hardware)
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_DATA- 32)) & 0x01)==1)
-  //while (digitalRead(KEYBOARD_DATA) == HIGH)
-  {//while (digitalRead(KEYBOARD_DATA) == HIGH)
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
-  }  
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==0)
-  //while (digitalRead(KEYBOARD_CLK) == LOW)
-  {//while (digitalRead(KEYBOARD_CLK) == LOW)
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
-  }
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_DATA- 32)) & 0x01)==0)
-  //while (digitalRead(KEYBOARD_DATA) == LOW)
-  {//while (digitalRead(KEYBOARD_DATA) == LOW)
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
-  }
+   // 3. RESPUESTA DE LINEA (Line ACK de hardware)   
+   while (digitalRead(KEYBOARD_DATA) == HIGH)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+   }
+   while (digitalRead(KEYBOARD_CLK) == LOW)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+   }
+   while (digitalRead(KEYBOARD_DATA) == LOW)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+   }
+  #endif
  }
 
  // Funcion auxiliar para escribir bits individuales en los flancos del teclado
  void escribirBitConRelojTeclado(unsigned char bitVal) 
  {
   unsigned int timeout = millis();
-  
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==1)
-  //while (digitalRead(KEYBOARD_CLK) == HIGH)
-  {//while (digitalRead(KEYBOARD_CLK) == HIGH) // Esperar flanco de bajada
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
-  }
 
-  if (bitVal == HIGH)
-  {
-    //pinMode(KEYBOARD_DATA, INPUT_PULLUP);
-    REG_WRITE(GPIO_ENABLE1_W1TC_REG, (1ULL << (KEYBOARD_DATA - 32))); //entrada
+  #ifdef PS2_FAST_BIT
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==1)   
+   {//while (digitalRead(KEYBOARD_CLK) == HIGH) // Esperar flanco de bajada
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
+   }
+
+   if (bitVal == HIGH)
+   {    
+    REG_WRITE(GPIO_ENABLE_W1TC_REG_KEYBOARD_DATA_END, (1ULL << KEYBOARD_DATA_END));       //entrada   //pinMode(KEYBOARD_DATA, INPUT_PULLUP);
     gpio_pullup_en((gpio_num_t)KEYBOARD_DATA); //Pullup
-  }
-  else 
-  {
-    //pinMode(KEYBOARD_DATA, OUTPUT);
-    REG_WRITE(GPIO_ENABLE1_W1TS_REG, (1ULL << (KEYBOARD_DATA - 32)));
-    
-    //digitalWrite(KEYBOARD_DATA, LOW);
-    REG_WRITE(GPIO_OUT_W1TC_REG, (1ULL << (KEYBOARD_DATA-32)));
-  }
+   }
+   else
+   {    
+    REG_WRITE(GPIO_ENABLE_W1TS_REG_KEYBOARD_DATA_END, (1ULL << KEYBOARD_DATA_END));       //pinMode(KEYBOARD_DATA, OUTPUT);
 
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==0)
-  //while (digitalRead(KEYBOARD_CLK) == LOW)
-  {//while (digitalRead(KEYBOARD_CLK) == LOW) // Esperar a que el Clock vuelva a subir
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
-  }
+    REG_WRITE(GPIO_OUT_W1TC_REG_KEYBOARD_DATA_END, (1ULL << KEYBOARD_DATA_END));          //digitalWrite(KEYBOARD_DATA, LOW);
+   }
+
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==0)
+   {//while (digitalRead(KEYBOARD_CLK) == LOW) // Esperar a que el Clock vuelva a subir
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }
+   }
+  #else   
+   while (digitalRead(KEYBOARD_CLK) == HIGH)
+   {// Esperar flanco de bajada
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
+   }
+
+   if (bitVal == HIGH)
+   {
+    pinMode(KEYBOARD_DATA, INPUT_PULLUP);              //entrada
+   }
+   else 
+   {
+    pinMode(KEYBOARD_DATA, OUTPUT);
+
+    digitalWrite(KEYBOARD_DATA, LOW);
+   }
+   
+   while (digitalRead(KEYBOARD_CLK) == LOW)
+   {// Esperar a que el Clock vuelva a subir
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return; }  
+   }  
+  #endif 
  }
 
  // RECEPCION: Lee un byte completo proveniente del teclado usando Polling puro
@@ -249,71 +300,119 @@ unsigned char checkKey(unsigned char scancode)
   unsigned char bitLeido;
   unsigned int timeout = millis();
 
-  // 1. Esperar el bit de START (El teclado baja la línea DATA)
-  // Timeout de 500ms por si el teclado no responde
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_DATA- 32)) & 0x01)==1)
-  //while (digitalRead(KEYBOARD_DATA) == HIGH)
-  {
+  #ifdef PS2_FAST_BIT
+   // 1. Esperar el bit de START (El teclado baja la línea DATA)
+   // Timeout de 500ms por si el teclado no responde
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_DATA_END) >> KEYBOARD_DATA_END) & 0x01)==1)   
+   {//while (digitalRead(KEYBOARD_DATA) == HIGH)
     if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
-  }
+   }
   
-  // Esperar a que el ciclo de reloj del bit de Start termine
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==1)
-  //while (digitalRead(KEYBOARD_CLK) == HIGH)
-  {
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
-  }
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==0)
-  //while (digitalRead(KEYBOARD_CLK) == LOW)
-  {
+   // Esperar a que el ciclo de reloj del bit de Start termine
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==1)   
+   {//while (digitalRead(KEYBOARD_CLK) == HIGH)
     if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
-  }
+   }
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==0)   
+   {//while (digitalRead(KEYBOARD_CLK) == LOW)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
 
-  // 2. LEER LOS 8 BITS DE DATOS (LSB primero)
-  for (unsigned char i = 0; i < 8; i++) 
-  {
-    while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==1)
-    //while (digitalRead(KEYBOARD_CLK) == HIGH)
-    { //while (digitalRead(KEYBOARD_CLK) == HIGH) // Esperar a que el Clock baje (El dato ya es valido)
+   // 2. LEER LOS 8 BITS DE DATOS (LSB primero)
+   for (unsigned char i = 0; i < 8; i++) 
+   {
+    while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==1)    
+    { //while (digitalRead(KEYBOARD_CLK) == HIGH)                        // Esperar a que el Clock baje (El dato ya es valido)
      if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
     }
     
-    bitLeido = (REG_READ(GPIO_IN1_REG) >> (KEYBOARD_DATA- 32))&0x01; //bitLeido = digitalRead(KEYBOARD_DATA);
-    //bitLeido = digitalRead(KEYBOARD_DATA);
-    datoRecibido |= (bitLeido << i);        // Almacenar el bit en su posicion
+    bitLeido = (REG_READ(GPIO_IN_REG_KEYBOARD_DATA_END) >> KEYBOARD_DATA_END)&0x01;     //bitLeido = digitalRead(KEYBOARD_DATA);    
+    datoRecibido |= (bitLeido << i);                                     // Almacenar el bit en su posicion
     
-    while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==0)
-    //while (digitalRead(KEYBOARD_CLK) == LOW)
-    { //while (digitalRead(KEYBOARD_CLK) == LOW) // Esperar a que el Clock suba
+    while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==0)    
+    { //while (digitalRead(KEYBOARD_CLK) == LOW)                         // Esperar a que el Clock suba
       if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
     }
-  }
+   }
 
-  // 3. LEER BIT DE PARIDAD (Saltar/Ignorar en este ejemplo basico)
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) &0x01)==1)
-  //while (digitalRead(KEYBOARD_CLK) == HIGH)
-  {//while (digitalRead(KEYBOARD_CLK) == HIGH)
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
-  }
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==0)
-  //while (digitalRead(KEYBOARD_CLK) == LOW)
-  {//while (digitalRead(KEYBOARD_CLK) == LOW)
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
-  }
+   // 3. LEER BIT DE PARIDAD (Saltar/Ignorar en este ejemplo basico)
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) &0x01)==1)   
+   {//while (digitalRead(KEYBOARD_CLK) == HIGH)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==0)   
+   {//while (digitalRead(KEYBOARD_CLK) == LOW)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
 
-  // 4. LEER BIT DE STOP
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==1)
-  //while (digitalRead(KEYBOARD_CLK) == HIGH)
-  {//while (digitalRead(KEYBOARD_CLK) == HIGH)
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
-  }
-  while (((REG_READ(GPIO_IN1_REG) >> (KEYBOARD_CLK- 32)) & 0x01)==0)
-  //while (digitalRead(KEYBOARD_CLK) == LOW)
-  {//while (digitalRead(KEYBOARD_CLK) == LOW)
-   if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
-  }
+   // 4. LEER BIT DE STOP
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==1)   
+   {//while (digitalRead(KEYBOARD_CLK) == HIGH)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
+   while (((REG_READ(GPIO_IN_REG_KEYBOARD_CLK_END) >> KEYBOARD_CLK_END) & 0x01)==0)   
+   {//while (digitalRead(KEYBOARD_CLK) == LOW)
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
 
-  return datoRecibido;
+   return datoRecibido;
+  #else
+   // 1. Esperar el bit de START (El teclado baja la línea DATA)
+   // Timeout de 500ms por si el teclado no responde   
+   while (digitalRead(KEYBOARD_DATA) == HIGH)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
+  
+   // Esperar a que el ciclo de reloj del bit de Start termine   
+   while (digitalRead(KEYBOARD_CLK) == HIGH)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }   
+   while (digitalRead(KEYBOARD_CLK) == LOW)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
+
+   // 2. LEER LOS 8 BITS DE DATOS (LSB primero)
+   for (unsigned char i = 0; i < 8; i++) 
+   {    
+    while (digitalRead(KEYBOARD_CLK) == HIGH)
+    { //Esperar a que el Clock baje (El dato ya es valido)
+     if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+    }
+        
+    bitLeido = digitalRead(KEYBOARD_DATA);
+    datoRecibido |= (bitLeido << i);        // Almacenar el bit en su posicion
+        
+    while (digitalRead(KEYBOARD_CLK) == LOW)
+    { //Esperar a que el Clock suba
+      if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+    }
+   }
+
+   // 3. LEER BIT DE PARIDAD (Saltar/Ignorar en este ejemplo basico)   
+   while (digitalRead(KEYBOARD_CLK) == HIGH)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }   
+   while (digitalRead(KEYBOARD_CLK) == LOW)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
+
+   // 4. LEER BIT DE STOP   
+   while (digitalRead(KEYBOARD_CLK) == HIGH)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }   
+   while (digitalRead(KEYBOARD_CLK) == LOW)
+   {
+    if (millis() - timeout > PS2_DIAGNOSTIC_ECHO_TIMEOUT) { return -1; }
+   }
+
+   return datoRecibido;
+  #endif  
  }
 
 
@@ -327,24 +426,24 @@ unsigned char checkKey(unsigned char scancode)
   Serial.println("PS2SendECHO BEGIN");
   delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda 
   
-  Serial.println("--- Probando Comunicacion PS/2 (ECHO) ---");  
+  Serial.println("--- Testing PS/2 Communication (ECHO) ---");
   enviarBytePS2(CMD_ECHO);   //Enviar comando ECHO  
   respuesta = leerBytePS2(); //Leer la respuesta del teclado por polling
   
   // Verificar si la respuesta es la correcta
   if (respuesta == CMD_ECHO) 
   {
-    Serial.println("¡EXITO! El teclado respondio correctamente con 0xEE (ECHO).");
+    Serial.println("OK. Keyboard request 0xEE (ECHO).");
   } 
   else  
   {
    if (respuesta == -1) 
    {
-     Serial.println("ERROR: Tiempo de espera agotado (Timeout). El teclado no respondio.");
+     Serial.println("ERROR. Timeout keyboard.");
    } 
    else 
    {
-     Serial.print("ERROR: Respuesta inesperada del teclado: 0x");
+     Serial.print("ERROR. Unexpected keyboard response:0x");
      Serial.println(respuesta, HEX);
    }  
   }

@@ -101,7 +101,7 @@ void InitPs2ToASCII()
  ps2_to_ascii[PS2_KC_8]='8';
  ps2_to_ascii[PS2_KC_9]='9';
 
- ps2_to_ascii[PS2_KC_9]= 13;
+ ps2_to_ascii[PS2_KC_ENTER]= 13;
 
  ps2_to_ascii[PS2_KC_SEMI]=';';
  ps2_to_ascii[PS2_KC_COMMA]=',';
