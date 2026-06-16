@@ -116,9 +116,7 @@ unsigned char checkKey(unsigned char scancode);
  
  short int kb_begin(void);
  short int PS2SendECHO(void); 
- void enviarBytePS2(unsigned char dato);
- void escribirBitPS2(unsigned char bitVal);
- void esperarACK(void);
+ void enviarBytePS2(unsigned char dato); 
  void escribirBitConRelojTeclado(unsigned char bitVal);
 #else
  void kb_begin(void);

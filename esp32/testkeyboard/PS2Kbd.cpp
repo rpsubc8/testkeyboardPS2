@@ -90,6 +90,8 @@ void IRAM_ATTR kb_interruptHandler()
   
   memset((void *)gb_keymap, 0xFF, sizeof(gb_keymap));
 
+  delay(PS2_BOOT_TIME_DELAY); //Wait, stabilize voltage 
+
   aReturn= PS2SendECHO();
   
   pinMode(KEYBOARD_DATA, INPUT_PULLUP);
@@ -106,6 +108,8 @@ void IRAM_ATTR kb_interruptHandler()
  {
   memset((void *)gb_keymap, 0xFF, sizeof(gb_keymap));
   //SaveStateKeyboard();
+
+  delay(PS2_BOOT_TIME_DELAY); //Wait, stabilize voltage
  
   pinMode(KEYBOARD_DATA, INPUT_PULLUP);
   pinMode(KEYBOARD_CLK, INPUT_PULLUP);
@@ -424,7 +428,7 @@ unsigned char checkKey(unsigned char scancode)
   pinMode(KEYBOARD_DATA, INPUT_PULLUP);
 
   Serial.println("PS2SendECHO BEGIN");
-  delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda 
+  delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda. Wait, stabilize voltage
   
   Serial.println("--- Testing PS/2 Communication (ECHO) ---");
   enviarBytePS2(CMD_ECHO);   //Enviar comando ECHO  

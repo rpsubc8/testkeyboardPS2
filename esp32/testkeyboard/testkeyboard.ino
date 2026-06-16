@@ -38,21 +38,22 @@ void DumpTeclado(void);
  void DumpEchoReq()
  {
   short int respuesta = gb_keyboard_echo_req;
+  
   if (respuesta == 0xEE) 
   {
     Serial.println("OK.ECHO 0xEE");
-  } 
-  else  
+  }
+  else
   {
-   if (respuesta == -1) 
+   if (respuesta == -1)
    {
      Serial.println("KO.Timeout");
-   } 
-   else 
+   }
+   else
    {
      Serial.printf("KO.Error:0x%04X\r\n",respuesta);
-   }  
-  }    
+   }
+  }
  }
 #endif
 
@@ -101,13 +102,42 @@ void InitPs2ToASCII()
  ps2_to_ascii[PS2_KC_8]='8';
  ps2_to_ascii[PS2_KC_9]='9';
 
- ps2_to_ascii[PS2_KC_ENTER]= 13;
+ ps2_to_ascii[PS2_KC_ENTER]= 'r';
 
  ps2_to_ascii[PS2_KC_SEMI]=';';
  ps2_to_ascii[PS2_KC_COMMA]=',';
  ps2_to_ascii[PS2_KC_EQUAL]='=';
  ps2_to_ascii[PS2_KC_DOT]='.';
  ps2_to_ascii[PS2_KEY_KP_DIV]='/';
+
+ ps2_to_ascii[PS2_KC_L_SHIFT]='s';
+ ps2_to_ascii[PS2_KC_R_SHIFT]='s';
+ ps2_to_ascii[PS2_KC_CTRL]='c';
+ ps2_to_ascii[KEY_ALT_GR]='a';
+ ps2_to_ascii[PS2_KC_DOT]='.';
+ ps2_to_ascii[PS2_KC_TAB]='t';
+ ps2_to_ascii[KEY_DELETE]='d';
+ ps2_to_ascii[KEY_BACKSPACE]='b';
+ ps2_to_ascii[KEY_ESC]='e';
+ ps2_to_ascii[KEY_CURSOR_LEFT]='l';
+ ps2_to_ascii[KEY_CURSOR_DOWN]='d';
+ ps2_to_ascii[KEY_CURSOR_RIGHT]='r';
+ ps2_to_ascii[KEY_CURSOR_UP]='u';
+ ps2_to_ascii[PS2_KC_SPACE]=' ';
+ 
+ 
+ ps2_to_ascii[PS2_KC_F1]='1';
+ ps2_to_ascii[KEY_F2]='2';
+ ps2_to_ascii[KEY_F3]='3';
+ ps2_to_ascii[KEY_F4]='4';
+ ps2_to_ascii[KEY_F5]='5';
+ ps2_to_ascii[KEY_F6]='6';
+ ps2_to_ascii[KEY_F7]='7';
+ ps2_to_ascii[KEY_F8]='8';
+ ps2_to_ascii[KEY_F9]='9';
+ ps2_to_ascii[KEY_F10]='0';
+ ps2_to_ascii[KEY_F11]='1';
+ ps2_to_ascii[KEY_F12]='2';
 }
 
 void DumpPs2ToASCII()
@@ -116,6 +146,12 @@ void DumpPs2ToASCII()
  unsigned char contLinea=0;
  char cadOut[90];
  unsigned char contCad=0;
+ unsigned char statusOverflow= checkKey(0);  
+  
+ if (statusOverflow==1)
+ {
+  Serial.println("Keyboard buffer overflow");
+ }
  
  for (unsigned short int i=0; i<240;i++)
  {

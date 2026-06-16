@@ -9,16 +9,19 @@
 
  //Fast DigitalWrite, DigitalRead
  //#define PS2_FAST_BIT
+
+ //Time delay before init keyb
+ #define PS2_BOOT_TIME_DELAY 1000
  
  //Auto detection Protocol Switching USB PS/2 (fix Perixx, Holtek, Cypres)
  #define PS2_DIAGNOSTIC_ECHO
  
  //Time delay before send ECHO
- #define PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY 500
+ #define PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY 1000
  //Time delay after send ECHO
  #define PS2_DIAGNOSTIC_ECHO_TIME_DELAY 500
  //Timeout flag keyboard
- #define PS2_DIAGNOSTIC_ECHO_TIMEOUT 500
+ #define PS2_DIAGNOSTIC_ECHO_TIMEOUT 1000
 
 
 
