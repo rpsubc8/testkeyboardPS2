@@ -461,6 +461,11 @@ unsigned char checkKey(unsigned char scancode)
 #endif
 
 
+void ClearOverFlow()
+{//Generalmente mas de 4 teclas a una misma linea generan overflow. Se puede llegar a 6.
+ gb_keymap[0]= gb_keymap[0] | 0x01;  //00000001 0x01  Es logica negada El bit 0 del Byte 0. Posicion 0 buffer, lo ponemos a 1, reset buffer overflow (maximas teclas)
+}
+
 //void ResetKeyboard()
 //{
 // for (unsigned char i = 0; i < gb_max_keymap32; i++)

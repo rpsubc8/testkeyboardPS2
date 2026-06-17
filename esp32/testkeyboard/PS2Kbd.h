@@ -43,7 +43,7 @@
 #define KEY_END 0xE069
 #define KEY_PAGE_UP 0xE07D
 #define KEY_PAGE_DOWN 0xE07A
-#define KEY_PAUSE 0xE11477E1F014E077
+//#define KEY_PAUSE 0xE11477E1F014E077
 #define KEY_BACKSPACE 0x66
 #define KEY_DELETE 0x71
 
@@ -102,6 +102,9 @@
 #define PS2_KC_L_SHIFT 0x12
 #define PS2_KC_R_SHIFT 0x59
 #define PS2_KEY_KP_DIV 0x2F
+#define PS2_KC_KP_PLUS 0x79
+#define PS2_KC_KP_MINUS 0x7B
+#define PS2_KC_KP_TIMES 0x7C
 //Def keys END
 
 
@@ -125,6 +128,7 @@ unsigned char checkKey(unsigned char scancode);
 //void ResetKeyboard(void);
 //void SaveStateKeyboard(void);
 //unsigned char ChangeStateKeyboard(void);
+void ClearOverFlow(void);
 
 
 

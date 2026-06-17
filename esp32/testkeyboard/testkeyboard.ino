@@ -19,6 +19,7 @@ unsigned char gb_setup_end=0;
 unsigned int gb_teclado_prev=0;
 unsigned int gb_teclado_cur=0;
 unsigned int gb_tiempo_borrar_cur=0,gb_tiempo_borrar_prev=0;
+unsigned char isDelayOverflow=0;
 
 #ifdef PS2_DIAGNOSTIC_ECHO
  short int gb_keyboard_echo_req= 0;
@@ -138,6 +139,10 @@ void InitPs2ToASCII()
  ps2_to_ascii[KEY_F10]='0';
  ps2_to_ascii[KEY_F11]='1';
  ps2_to_ascii[KEY_F12]='2';
+
+ ps2_to_ascii[PS2_KC_KP_PLUS]='+';
+ ps2_to_ascii[PS2_KC_KP_MINUS]='-';
+ ps2_to_ascii[PS2_KC_KP_TIMES]='*';
 }
 
 void DumpPs2ToASCII()
@@ -146,11 +151,15 @@ void DumpPs2ToASCII()
  unsigned char contLinea=0;
  char cadOut[90];
  unsigned char contCad=0;
- unsigned char statusOverflow= checkKey(0);  
+ unsigned char statusOverflow= checkKey(0); 
+ 
+ isDelayOverflow= 0;
   
  if (statusOverflow==1)
  {
+  ClearOverFlow();
   Serial.println("Keyboard buffer overflow");
+  isDelayOverflow=1;  
  }
  
  for (unsigned short int i=0; i<240;i++)
@@ -226,6 +235,11 @@ void DumpTeclado()
 
  DumpPs2ToASCII();
  DumpMapKey();
+
+ if (isDelayOverflow==1)
+ {
+  delay(500);
+ }
 }
 
 void setup() 
