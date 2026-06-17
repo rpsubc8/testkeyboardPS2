@@ -30,7 +30,51 @@ Raspberry PiPico/RP2040 by Earle F. Philhower III version 2.6.4<br><br>
 <h1>Switching USB PS/2</h1>
 Perixx, Holtek and Cypres keyboards remain in USB mode upon startup, continuously sending the 0xAA command and restarting.<br>
 To break the loop and switch to PS/2 mode, the ECHO 0xEE command must be sent.<br>
-I have created a <b>PS2_DIAGNOSTIC_ECHO</b> pragma in <b>gbConfig.h</b> to enable this fix.
+To exit test boot mode, it doesn’t have to be exactly 0xEE; specifically, the keyboard’s restart command also works, as do the functions for activating Num Lock, Caps Lock and code page selection.<br>
+I have created a <b>PS2_DIAGNOSTIC_ECHO</b> pragma in <b>gbConfig.h</b> to enable this fix.<br>
+
+
+<br><br>
+<h1>Overflow</h1>
+When more than 4 keys on the same row are pressed, a buffer overflow is triggered. There are special cases involving up to 6 keys, but this is more common with USB keyboards and the USB protocol.<br>
+The fact that they are on the same row does not mean that more than 4 keys from different rows cannot be pressed.<br>
+In such cases, a warning is displayed on the serial terminal as:
+
+<pre>
+ Keyboard buffer overflow 
+</pre>
+When an overflow occurs, a keyboard returns 0x00, as this is the logical negation.
+
+
+<br><br>
+<h1>Time delay</h1>
+PS/2 keyboards require a delay to stabilise the voltage and current before the routine is initialised. Furthermore, it is recommended to use keyboards without backlighting.<br>
+The delay is set by the <b>PS2_BOOT_TIME_DELAY</b> in <b>the gbConfig.h</b> file.<br>
+PERIXX keyboards require a longer wait time. Once a keyboard has booted up, it has to pass the boot tests.<br>
+A minimum timeout period is also required whilst waiting for the response to command 0xEE.<br>
+
+<b>mvalder</b> has carried out tests and has managed to get his PERIXX keyboard to work correctly with the following timing settings:<br>
+
+<pre>
+ //Time delay before init keyb
+ #define PS2_BOOT_TIME_DELAY 500
+ 
+ //Auto detection Protocol Switching USB PS/2 (fix Perixx, Holtek, Cypres)
+ #define PS2_DIAGNOSTIC_ECHO
+ 
+ //Time delay before send ECHO
+ #define PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY 500
+ //Time delay after send ECHO
+ #define PS2_DIAGNOSTIC_ECHO_TIME_DELAY 500
+ //Timeout flag keyboard
+ #define PS2_DIAGNOSTIC_ECHO_TIMEOUT 400
+</pre>
+
+If we want maximum speed when reading and writing bits to the keyboard, we must use the pragma:
+<pre>
+#define PS2_FAST_BIT
+</pre>
+
 
 <br><br>
 <h1>Acknowledgements</h1>
