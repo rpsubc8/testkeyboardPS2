@@ -3,6 +3,7 @@
 //Warning: Use REG_READ, not digitalRead (32 GPIOS low or high modification)
 //Author: ackerman
 //Show 240 scancodes
+//Many thanks to mvalder for all the thorough testing with his PERIXX keyboard.
 
 #include "gbConfig.h"
 #include "PS2Kbd.h"
@@ -20,6 +21,9 @@ unsigned int gb_teclado_prev=0;
 unsigned int gb_teclado_cur=0;
 unsigned int gb_tiempo_borrar_cur=0,gb_tiempo_borrar_prev=0;
 unsigned char isDelayOverflow=0;
+unsigned char key_now[240];
+unsigned char key_prev[240];
+unsigned char cont_run=0;
 
 #ifdef PS2_DIAGNOSTIC_ECHO
  short int gb_keyboard_echo_req= 0;
@@ -31,6 +35,7 @@ void InitPs2ToASCII(void);
 void DumpPs2ToASCII(void);
 void DumpMapKey(void);
 void DumpTeclado(void);
+unsigned char KeyChg(void);
 #ifdef PS2_DIAGNOSTIC_ECHO  
  void DumpEchoReq(void);
 #endif 
@@ -58,6 +63,23 @@ void DumpTeclado(void);
  }
 #endif
 
+
+unsigned char KeyChg()
+{
+ unsigned char aReturn=0;
+
+ for (unsigned char i=0; i<240;i++)
+ {  
+  key_now[i]= checkKey(i);
+  if (key_now[i] != key_prev[i])
+  {
+   key_prev[i]= key_now[i]; 
+   aReturn= 1;
+  }  
+ }
+
+ return aReturn;
+}
 
 void InitPs2ToASCII()
 { 
@@ -247,6 +269,8 @@ void setup()
  gb_setup_end=0;
  Serial.begin(115200);
 
+ memset(key_now,0,240);
+ memset(key_prev,0,240);
  InitPs2ToASCII();
 
  #ifdef PS2_DIAGNOSTIC_ECHO
@@ -271,8 +295,12 @@ void loop()
   if(aux>=(gb_max_poll_ms-1))
   {
    gb_teclado_prev= gb_teclado_cur;
-   
-   DumpTeclado();   
+
+   if ((KeyChg()==1)||(cont_run==0))
+   {
+    cont_run=1;
+    DumpTeclado();   
+   }
   }
  }
 }
