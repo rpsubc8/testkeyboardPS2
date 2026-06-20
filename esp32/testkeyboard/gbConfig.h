@@ -14,7 +14,7 @@
  #define PS2_BOOT_TIME_DELAY 1000
  
  //Auto detection Protocol Switching USB PS/2 (fix Perixx, Holtek, Cypres)
- #define PS2_DIAGNOSTIC_ECHO
+ //#define PS2_DIAGNOSTIC_ECHO
  
  //Time delay before send ECHO
  #define PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY 1000
