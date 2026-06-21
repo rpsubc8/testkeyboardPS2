@@ -415,8 +415,8 @@ unsigned char checkKey(unsigned char scancode)
  {
   short int respuesta=-1;
   
-  pinMode(KEYBOARD_CLK, INPUT_PULLUP);
-  pinMode(KEYBOARD_DATA, INPUT_PULLUP);
+  pinMode(KEYBOARD_CLK, INPUT_PULLUP);  //Fix boot keyboard send 0xEE PS/2 normal keyboard (not use in boot INPUT_PULLUP)
+  pinMode(KEYBOARD_DATA, INPUT_PULLUP); //Fix boot keyboard send 0xEE PS/2 normal keyboard (not use in boot INPUT_PULLUP)
 
   Serial.println("PS2SendECHO BEGIN");
   delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda. Wait, stabilize voltage
@@ -428,18 +428,18 @@ unsigned char checkKey(unsigned char scancode)
   // Verificar si la respuesta es la correcta
   if (respuesta == CMD_ECHO) 
   {
-    Serial.println("OK. Keyboard request 0xEE (ECHO).");
+   Serial.println("OK. Keyboard request 0xEE (ECHO).");
   } 
   else  
   {
    if (respuesta == -1) 
    {
-     Serial.println("ERROR. Timeout keyboard.");
+    Serial.println("ERROR. Timeout keyboard.");
    } 
    else 
    {
-     Serial.print("ERROR. Unexpected keyboard response:0x");
-     Serial.println(respuesta, HEX);
+    Serial.print("ERROR. Unexpected keyboard response:0x");
+    Serial.println(respuesta, HEX);
    }  
   }
   

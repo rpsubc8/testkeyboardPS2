@@ -120,6 +120,7 @@
   short int PS2SendECHO(void);
   void enviarBytePS2(unsigned char dato);
   void escribirBitConRelojTeclado(unsigned char bitVal);
+  short int leerBytePS2(void);
  #else
   void kb_begin(void);
  #endif
