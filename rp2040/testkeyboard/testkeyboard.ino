@@ -5,7 +5,8 @@
 //Author: ackerman
 //Show 240 scancodes
 //Many thanks to mvalder for all the thorough testing with his PERIXX keyboard.
-//Press Key F12 to reboot rp2040
+//Press Key F12 to reboot rp2040.
+//Send r or R monitor serial Arduino UART to reboot rp2040.
 
 #include "gbConfig.h"
 #include "PS2Kbd.h"
@@ -39,6 +40,7 @@ void DumpMapKey(void);
 void DumpTeclado(void);
 unsigned char KeyChg(void);
 void DoEvent(void);
+void DoEventUART(void);
 #ifdef PS2_DIAGNOSTIC_ECHO  
  void DumpEchoReq(void);
 #endif 
@@ -73,6 +75,22 @@ void DoEvent()
   Serial.println("Press Key F12 to Reboot RP2040");
   delay(500);
   watchdog_reboot(0, 0, 0);
+ }
+}
+
+void DoEventUART()
+{
+ char aKey;
+ 
+ if (Serial.available() > 0)
+ {
+  aKey= Serial.read();
+  if ((aKey == 'r')||(aKey == 'R'))
+  {
+   Serial.println("Press Key r or R to Reboot RP2040 UART");
+   delay(500);
+   watchdog_reboot(0, 0, 0);
+  }
  }
 }
 
@@ -316,9 +334,11 @@ void loop()
    if ((KeyChg()==1)||(cont_run==0))
    {
     cont_run=1;
-    DumpTeclado();
-    DoEvent();
+    DumpTeclado();    
    }
+   
+   DoEvent();
+   DoEventUART();
   }
  }
 }
