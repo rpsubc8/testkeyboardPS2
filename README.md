@@ -7,6 +7,7 @@
  <li>The serial port output consists of a matrix of 3 rows of 80 columns, i.e. 240 scancodes, where a 1 is a key pressed and 0 not pressed.</li>
  <li>Auto detection Protocol Switching USB PS/2, send ECHO CMD (0xEE). Keyboards Perixx, Holtek, Cypres.</li>
  <li>The F12 key resets the ESP32 or RP2040. This is useful for testing, such as connecting a working keyboard while the device is running, allowing you to reset it and then connect the keyboard that may be causing problems with the 0xEE command.</li>
+ <li>Send r or R monitor serial Arduino UART to reboot rp2040 or ESP32.</li>
 </ul>
 
 <center><img src='https://raw.githubusercontent.com/rpsubc8/testkeyboardPS2/main/preview/previewTerminal.gif'></center>
