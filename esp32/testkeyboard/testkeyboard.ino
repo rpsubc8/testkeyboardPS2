@@ -4,6 +4,7 @@
 //Author: ackerman
 //Show 240 scancodes
 //Many thanks to mvalder for all the thorough testing with his PERIXX keyboard.
+//Press Key F12 to reboot ESP32
 
 #include "gbConfig.h"
 #include "PS2Kbd.h"
@@ -36,6 +37,7 @@ void DumpPs2ToASCII(void);
 void DumpMapKey(void);
 void DumpTeclado(void);
 unsigned char KeyChg(void);
+void DoEvent(void);
 #ifdef PS2_DIAGNOSTIC_ECHO  
  void DumpEchoReq(void);
 #endif 
@@ -63,6 +65,15 @@ unsigned char KeyChg(void);
  }
 #endif
 
+void DoEvent()
+{
+ if (checkKey(KEY_F12))
+ {
+  Serial.println("Press Key F12 to Reboot RP2040");
+  delay(500);
+  ESP.restart();
+ }
+}
 
 unsigned char KeyChg()
 {
@@ -299,7 +310,8 @@ void loop()
    if ((KeyChg()==1)||(cont_run==0))
    {
     cont_run=1;
-    DumpTeclado();   
+    DumpTeclado();
+    DoEvent();
    }
   }
  }

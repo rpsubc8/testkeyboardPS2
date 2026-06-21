@@ -424,8 +424,8 @@ unsigned char checkKey(unsigned char scancode)
  {
   short int respuesta=-1;
   
-  pinMode(KEYBOARD_CLK, INPUT_PULLUP);
-  pinMode(KEYBOARD_DATA, INPUT_PULLUP);
+  pinMode(KEYBOARD_CLK, INPUT_PULLUP);  //Fix boot keyboard send 0xEE PS/2 normal keyboard (not use in boot INPUT_PULLUP)
+  pinMode(KEYBOARD_DATA, INPUT_PULLUP); //Fix boot keyboard send 0xEE PS/2 normal keyboard (not use in boot INPUT_PULLUP)
 
   Serial.println("PS2SendECHO BEGIN");
   delay(PS2_DIAGNOSTIC_ECHO_BOOT_TIME_DELAY);  //delay(1000); // Espera a que el teclado encienda. Wait, stabilize voltage
