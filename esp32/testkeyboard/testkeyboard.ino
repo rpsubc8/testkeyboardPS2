@@ -5,6 +5,7 @@
 //Show 240 scancodes
 //Many thanks to mvalder for all the thorough testing with his PERIXX keyboard.
 //Press Key F12 to reboot ESP32
+//Send r or R monitor serial Arduino UART to reboot ESP32.
 
 #include "gbConfig.h"
 #include "PS2Kbd.h"
@@ -38,6 +39,7 @@ void DumpMapKey(void);
 void DumpTeclado(void);
 unsigned char KeyChg(void);
 void DoEvent(void);
+void DoEventUART(void);
 #ifdef PS2_DIAGNOSTIC_ECHO  
  void DumpEchoReq(void);
 #endif 
@@ -69,9 +71,25 @@ void DoEvent()
 {
  if (checkKey(KEY_F12))
  {
-  Serial.println("Press Key F12 to Reboot RP2040");
+  Serial.println("Press Key F12 to Reboot ESP32");
   delay(500);
   ESP.restart();
+ }
+}
+
+void DoEventUART()
+{
+ char aKey;
+ 
+ if (Serial.available() > 0)
+ {
+  aKey= Serial.read();
+  if ((aKey == 'r')||(aKey == 'R'))
+  {
+   Serial.println("Press Key r or R to Reboot ESP32 UART");
+   delay(500);
+   ESP.restart();
+  }
  }
 }
 
@@ -311,8 +329,10 @@ void loop()
    {
     cont_run=1;
     DumpTeclado();
-    DoEvent();
    }
+
+   DoEvent();
+   DoEventUART();
   }
  }
 }

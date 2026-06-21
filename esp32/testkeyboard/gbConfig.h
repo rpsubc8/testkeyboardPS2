@@ -23,8 +23,8 @@
  //Timeout flag keyboard
  #define PS2_DIAGNOSTIC_ECHO_TIMEOUT 1000
 
-
-
+ 
+ 
  //IMPORTANT!!! Do not delete. Required for PS2_FAST_BIT (GPIO upper 32)
  #if KEYBOARD_DATA > 31
   #define KEYBOARD_DATA_END (KEYBOARD_DATA - 32)
